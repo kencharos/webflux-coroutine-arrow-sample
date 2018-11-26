@@ -32,39 +32,66 @@ import reactor.core.publisher.Mono
 class ApiController(val hello:HelloService, val world:WorldService , val extra:ExtraService) {
 
 
+
     @GetMapping("seq_rx")
-    fun rxSample() {
+    fun rxSampleSeq():Mono<String> {
+        val h:Mono<String> = hello.getMessage()
+        val w:Mono<String> = world.getMessage()
+        val e:Mono<String> = extra.getMessage()
+
+        return h.flatMap { _h ->
+            w.flatMap { _w ->
+                e.map { _h + _w + it} } }
+
+    }
+
+    @GetMapping("par_rx")
+    fun rxSamplePar():Mono<String> {
         val h = hello.getMessage()
         val w = world.getMessage()
-        Mono.zip(h, w)
+        val e = extra.getMessage()
+
+        return Mono.zip(h, w)
             .map { it.t1 + " " + it.t2 }
-            .flatMap { hw -> extra.getMessage().map{hw + it}}
+            .flatMap { hw ->
+                e.map{hw + it}}
 
     }
 
     @GetMapping("seq")
     fun seqWithCoroutine() = GlobalScope.mono{
-        val h = hello.getMessage().awaitFirst()
-        val w = world.getMessage().awaitFirst()
-        val e = extra.getMessage().awaitFirst()
+        // awaitFirst で、 Rxを コルーチンに
+        val h:String = hello.getMessage().awaitFirst()
+        val w:String = world.getMessage().awaitFirst()
+        val e:String = extra.getMessage().awaitFirst()
         "$h $w $e"
     }
 
 
     @GetMapping("par")
     fun parWithCoroutine() = GlobalScope.mono{
-        val h = async{hello.getMessage().awaitFirst()}
-        val w = async{world.getMessage().awaitFirst()}
-        h.await() + " "+ w.await() + " "  + async{extra.getMessage().awaitFirst()}
+        // start hello and world tasks in parallel.
+        val hDeffered = async{hello.getMessage().awaitFirst()}
+        val wDeffered = async{world.getMessage().awaitFirst()}
+
+        // join 2 tasks
+        val h:String = hDeffered.await()
+        val w:String = wDeffered.await()
+        // start extra
+        val e = extra.getMessage().awaitFirst()
+
+        h + " "+ w + " "  + e
     }
 
 
 
     @GetMapping("monad_seq")
     fun seqWithMonad():Mono<String> = MonoK.monad().binding {
-            val h = hello.getMessage().k().bind()
-            val w = world.getMessage().k().bind()
-            val e = extra.getMessage().k().bind()
+            // K() is buidler from Mono to MonoK. MonoK is Monad of Mono in Arrow.
+            // bind() is flatMap as Coroutine.
+            val h:String = hello.getMessage().k().bind()
+            val w:String = world.getMessage().k().bind()
+            val e:String = extra.getMessage().k().bind()
             h + w + e
         }.value()
 
@@ -86,14 +113,33 @@ class ApiController(val hello:HelloService, val world:WorldService , val extra:E
 
     @GetMapping("monad_par2")
     fun monadPar2_misstake():Mono<String> = MonoK.monad().binding {
-        val h = hello.getMessage().k()
-        val w = world.getMessage().k()
+        val hMonoK = hello.getMessage().k()
+        val wMonoK = world.getMessage().k()
         // ココは並列にならない。monok は MonadかつApplicative のため、 mapは flatMapになるので。
-        val hw = MonoK.applicative().tupled(h, w).map { it.a + it.b }.bind()
+        val hw = MonoK.applicative().tupled(hMonoK, wMonoK).map { it.a + it.b }.bind()
         val e = extra.getMessage().k().bind()
         hw + e
     }.value()
 
+
+
+    @GetMapping("monad_error")
+    fun handlingMonokEither(@RequestParam("query") query:String):Mono<ResponseEntity<String>> {
+
+
+        val resEither = MonoK.monad().binding {
+            val hEither:Either<Throwable, String> = hello.getMessageOrError(query).bind()
+            val wEither:Either<Throwable, String> = world.getMessageOrError(query).bind()
+
+            hEither.flatMap { h -> wEither.map{w -> h + w}}
+        }.value()
+
+        return  resEither.map { when(it){
+            is Either.Right -> ResponseEntity.ok().body(it.b)
+            is Either.Left -> ResponseEntity.badRequest().body(it.a.message)
+        } }
+
+    }
 
     @GetMapping("monad_error_seq")
     fun monadTransformSeq(@RequestParam("query") query:String):Mono<ResponseEntity<String>> {
