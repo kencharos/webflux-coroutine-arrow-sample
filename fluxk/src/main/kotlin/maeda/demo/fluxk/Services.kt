@@ -17,15 +17,15 @@ import java.lang.IllegalArgumentException
 import arrow.effects.monok.applicative.*
 
 @Service
-class HelloService(@Value("\${endpoint.hello}") val endpoint: String) {
+class HelloApi(@Value("\${endpoint.hello}") val endpoint: String) {
 
-    fun getMessage() :Mono<String> = WebClient.create(endpoint).get()
+    fun callApi() :Mono<String> = WebClient.create(endpoint).get()
                 .retrieve().bodyToMono()
 
     // Scala だと higherKind 型は直接していできるが、 kotlinだと、 ForXX が必要
-    fun getMessageOrError(name:String) :MonoK<Either<Throwable, String>> {
+    fun callApiOrError(name:String) :MonoK<Either<Throwable, String>> {
         val mono:Mono<Either<Throwable, String>> = WebClient.create(endpoint).get().retrieve().bodyToMono(String::class.java)
-                .map{ Either.cond(!name.contains("error1"), {it!!}, {IllegalArgumentException("error raised from hello service")}) }
+                .map{ Either.cond(!name.contains("error1"), {it!!}, {IllegalArgumentException("error raised from helloApi service")}) }
         return mono.k()
     }
 
@@ -33,28 +33,28 @@ class HelloService(@Value("\${endpoint.hello}") val endpoint: String) {
 
 
 @Service
-class WorldService(@Value("\${endpoint.world}") val endpoint: String) {
+class WorldApi(@Value("\${endpoint.world}") val endpoint: String) {
 
-    fun getMessage() :Mono<String> = WebClient.create(endpoint).get()
+    fun callApi() :Mono<String> = WebClient.create(endpoint).get()
                 .retrieve().bodyToMono()
 
-    fun getMessageOrError(name:String) :MonoK<Either<Throwable, String>> {
+    fun callApiOrError(name:String) :MonoK<Either<Throwable, String>> {
         val mono:Mono<Either<Throwable, String>> = WebClient.create(endpoint).get().retrieve().bodyToMono(String::class.java)
-                .map{ Either.cond(!name.contains("error2"), {it!!}, {IllegalArgumentException("error raised from world service")}) }
+                .map{ Either.cond(!name.contains("error2"), {it!!}, {IllegalArgumentException("error raised from worldApi service")}) }
         return mono.k()
     }
 }
 
 
 @Service
-class ExtraService(@Value("\${endpoint.extra}") val endpoint: String) {
+class ExclamationApi(@Value("\${endpoint.extra}") val endpoint: String) {
 
-    fun getMessage() :Mono<String> = WebClient.create(endpoint).get()
+    fun callApi() :Mono<String> = WebClient.create(endpoint).get()
             .retrieve().bodyToMono()
 
-    fun getMessageOrError(name:String) :MonoK<Either<Throwable, String>> {
+    fun callApiOrError(name:String) :MonoK<Either<Throwable, String>> {
         val mono:Mono<Either<Throwable, String>> = WebClient.create(endpoint).get().retrieve().bodyToMono(String::class.java)
-                .map{ Either.cond(!name.contains("error3"), {it!!}, {IllegalArgumentException("error raised from extra service")}) }
+                .map{ Either.cond(!name.contains("error3"), {it!!}, {IllegalArgumentException("error raised from exclamationApi service")}) }
         return mono.k()
     }
 }
