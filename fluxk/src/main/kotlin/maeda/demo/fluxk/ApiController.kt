@@ -73,12 +73,12 @@ class ApiController(val helloApi:HelloApi, val worldApi:WorldApi, val exclamatio
     @GetMapping("par")
     fun parWithCoroutine():Mono<String> = GlobalScope.mono {
         // start helloApi and worldApi tasks in parallel.
-        val helloDeffered = async { helloApi.callApi().awaitFirst() }
-        val worldDeffered = async { worldApi.callApi().awaitFirst() }
+        val helloDeferred = async { helloApi.callApi().awaitFirst() }
+        val worldDeferred = async { worldApi.callApi().awaitFirst() }
 
         // join 2 tasks
-        val hello: String = helloDeffered.await()
-        val world: String = worldDeffered.await()
+        val hello: String = helloDeferred.await()
+        val world: String = worldDeferred.await()
         // start exclamationApi
         val exclamation = exclamationApi.callApi().awaitFirst()
 
@@ -90,9 +90,9 @@ class ApiController(val helloApi:HelloApi, val worldApi:WorldApi, val exclamatio
     fun seqWithMonad():Mono<String> = MonoK.monad().binding {
         // K() is buidler from Mono to MonoK. MonoK is Monad of Mono in Arrow.
         // bind() is flatMap as Coroutine.
-        val h: String = helloApi.callApi().doOnSuccess() { c->println("h fin " + c) }.k().bind()
-        val w: String = worldApi.callApi().doOnSuccess { c->println("w fin " + c) }.k().bind()
-        val e: String = exclamationApi.callApi().doOnSuccess { c->println("e fin " + c) }.k().bind()
+        val h: String = helloApi.callApi().k().bind()
+        val w: String = worldApi.callApi().k().bind()
+        val e: String = exclamationApi.callApi().k().bind()
         h + w + e
     }.value()
 
